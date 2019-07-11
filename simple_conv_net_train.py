@@ -1,19 +1,31 @@
 from __future__ import print_function
+
 import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from torchvision import datasets, transforms
-from simple_conv_net_func import diff_mse
-from simple_conv_net_func import conv2d_scalar, pool2d_scalar, relu_scalar, reshape_scalar, fc_layer_scalar
-from simple_conv_net_func import conv2d_vector, pool2d_vector, relu_vector, reshape_vector, fc_layer_vector
+from torchsummary import summary
+
+from utilities import diff_mse
+from simple_conv_net_func import \
+    conv2d_scalar, conv2d_vector, \
+    pool2d_scalar, pool2d_vector, \
+    relu_scalar, relu_vector, \
+    reshape_scalar, reshape_vector, \
+    fc_layer_scalar, fc_layer_vector
 
 
 class SimpleConvNet(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, use_own=True, vectorization=True):
         super(SimpleConvNet, self).__init__()
+        
         self.device = device
+        self.use_own = use_own
+        self.vectorization = vectorization
+        
         self.conv_layer = nn.Conv2d(in_channels=1,
                                     out_channels=20,
                                     kernel_size=5,
@@ -26,22 +38,46 @@ class SimpleConvNet(nn.Module):
         self.fc_layer2 = nn.Linear(in_features=500, out_features=10)
         self.to(device)
 
-
     def forward(self, x):
-        # When your implementations will be ready, replace standard Pytorch
-        # implementation by your custom functions, like:
-        #
-        # z_conv = conv2d_vector(x, conv_weight=self.conv_layer.weight,
-        #                       conv_bias=self.conv_layer.bias,
-        #                       device=self.device)
-        z_conv = self.conv_layer(x)
-        z_pool = F.max_pool2d(z_conv, 2, 2)
-        z_pool_reshaped = z_pool.view(-1, 20*12*12)
-        z_fc1 = self.fc_layer1(z_pool_reshaped)
-        z_relu = F.relu(z_fc1)
-        z_fc2 = self.fc_layer2(z_relu)
-        y = F.softmax(z_fc2, dim=1)
-        return y
+        if not self.use_own:
+            z_conv = self.conv_layer(x)
+            z_pool = F.max_pool2d(z_conv, 2, 2)
+            z_pool_reshaped = z_pool.view(-1, 20*12*12)
+            z_fc1 = self.fc_layer1(z_pool_reshaped)
+            z_relu = F.relu(z_fc1)
+            z_fc2 = self.fc_layer2(z_relu)
+            return F.softmax(z_fc2, dim=1)
+        
+        if self.vectorization:
+            z_conv = conv2d_vector(
+                x,
+                self.conv_layer.weight,
+                self.conv_layer.bias,
+                self.device,
+                self.conv_layer.padding[0],
+                self.conv_layer.stride[1],
+            )
+            z_pool = pool2d_vector(z_conv, self.device)
+            z_pool_reshaped = reshape_vector(z_pool, self.device)
+            z_fc1 = fc_layer_vector(z_pool_reshaped, self.fc_layer1.weight, self.fc_layer1.bias, self.device)
+            z_relu = relu_vector(z_fc1, self.device)
+            z_fc2 = fc_layer_vector(z_relu, self.fc_layer2.weight, self.fc_layer2.bias, self.device)
+            return F.softmax(z_fc2, dim=1)
+
+        z_conv = conv2d_scalar(
+            x,
+            self.conv_layer.weight,
+            self.conv_layer.bias,
+            self.device,
+            self.conv_layer.padding[0],
+            self.conv_layer.stride[1],
+        )
+        z_pool = pool2d_scalar(z_conv, self.device)
+        z_pool_reshaped = reshape_scalar(z_pool, self.device)
+        z_fc1 = fc_layer_scalar(z_pool_reshaped, self.fc_layer1.weight, self.fc_layer1.bias, self.device)
+        z_relu = relu_scalar(z_fc1, self.device)
+        z_fc2 = fc_layer_scalar(z_relu, self.fc_layer2.weight, self.fc_layer2.bias, self.device)
+        return F.softmax(z_fc2, dim=1) 
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -95,13 +131,15 @@ def main(args):
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-    model = SimpleConvNet(device)
+    model = SimpleConvNet(device, use_own=True, vectorization=False)
+    summary(model, (1, 28, 28), batch_size=args.batch_size, device="cuda" if use_cuda else "cpu")
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(args, model, device, test_loader)
-    if (args.save_model):
-        torch.save(model.state_dict(),"mnist_cnn.pt")
+
+    if args.save_model:
+        torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':
