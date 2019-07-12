@@ -3,7 +3,7 @@ import torch
 
 
 def reshape_vector(a, device):
-    N_batch, C_in, img_size, _ = a.shape
+    N_batch, _, img_size, _ = a.shape
     return a.clone().view(N_batch, -1).to(device)
 
 

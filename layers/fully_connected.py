@@ -1,9 +1,10 @@
 import torch
 
+from .utilities import ax_plus_b_vector
+
 
 def fc_layer_vector(a, weight, bias, device):
-    result = a.mm(weight.t()).add(bias)
-    return result
+    return ax_plus_b_vector(weight.t(), a, bias)
 
 
 def fc_layer_scalar(a, weight, bias, device):
