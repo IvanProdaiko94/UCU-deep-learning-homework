@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from torchvision import datasets, transforms
-from torchsummary import summary
 
 from layers.convolutional import conv2d_scalar, conv2d_vector
 from layers.pooling import pool2d_scalar, pool2d_vector
@@ -130,7 +129,6 @@ def main(args):
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
     model = SimpleConvNet(device, use_own=args.use_own, vectorization=args.vectorization)
-    summary(model, (1, 28, 28), batch_size=args.batch_size, device="cuda" if use_cuda else "cpu")
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
