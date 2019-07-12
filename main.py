@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import argparse
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -130,8 +131,13 @@ def main(args):
 
     model = SimpleConvNet(device, use_own=args.use_own, vectorization=args.vectorization)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
     for epoch in range(1, args.epochs + 1):
+        start = time.process_time()
         train(args, model, device, train_loader, optimizer, epoch)
+        end = time.process_time()
+
+        print("Execution time: {}s".format(round(end - start, 2)))
         test(args, model, device, test_loader)
 
     if args.save_model:
@@ -145,7 +151,7 @@ if __name__ == '__main__':
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=20, metavar='N',
+    parser.add_argument('--epochs', type=int, default=1, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='learning rate (default: 0.01)')

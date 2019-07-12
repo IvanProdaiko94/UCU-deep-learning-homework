@@ -8,15 +8,20 @@ def diff_mse(x, y):
     return torch.mean(torch.pow((x_vec - y_vec), 2)).item()
 
 
-def im2col(X, kernel_size, device):
-    #
-    # Add your code here
-    #
-    pass
+def convolved_image_size(size, kernel_size, padding, stride):
+    return ((size - kernel_size + 2 * padding) // stride) + 1
 
 
-def conv_weight2rows(conv_weight):
-    #
-    # Add your code here
-    #
-    pass
+def im2col(img, kernel_size, device, stride=1, padding=0):
+    N_batch, C_in, img_size, _ = img.shape
+    out_size = convolved_image_size(img_size, kernel_size, padding, stride)
+
+    col = torch.zeros((kernel_size, kernel_size, N_batch, C_in, out_size, out_size))
+
+    margin = stride * out_size
+
+    for x in range(kernel_size):
+        for y in range(kernel_size):
+            col[x, y] = img[:, :, x:x + margin:stride, y:y + margin:stride]
+
+    return col.view(kernel_size*kernel_size, -1).to(device)

@@ -1,4 +1,4 @@
-# Deep learning. 
+# Deep learning
 # Home work №2
 
 ### Results:
