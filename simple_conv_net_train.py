@@ -9,13 +9,11 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torchsummary import summary
 
-from utilities import diff_mse
-from simple_conv_net_func import \
-    conv2d_scalar, conv2d_vector, \
-    pool2d_scalar, pool2d_vector, \
-    relu_scalar, relu_vector, \
-    reshape_scalar, reshape_vector, \
-    fc_layer_scalar, fc_layer_vector
+from layers.convolutional import conv2d_scalar, conv2d_vector
+from layers.pooling import pool2d_scalar, pool2d_vector
+from layers.relu import relu_scalar, relu_vector
+from layers.reshape import reshape_scalar, reshape_vector
+from layers.fully_connected import fc_layer_scalar, fc_layer_vector
 
 
 class SimpleConvNet(nn.Module):
@@ -131,7 +129,7 @@ def main(args):
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-    model = SimpleConvNet(device, use_own=True, vectorization=False)
+    model = SimpleConvNet(device, use_own=args.use_own, vectorization=args.vectorization)
     summary(model, (1, 28, 28), batch_size=args.batch_size, device="cuda" if use_cuda else "cpu")
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     for epoch in range(1, args.epochs + 1):
@@ -164,5 +162,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
+
+    parser.add_argument('--use-own', action='store_true', default=False,
+                        help='For using own model')
+
+    parser.add_argument('--vectorization', action='store_true', default=False,
+                        help='For Vectorization')
+
     args = parser.parse_args()
     main(args)
